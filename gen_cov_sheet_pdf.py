@@ -84,7 +84,7 @@ def generate_coversheets_zip(student_list=[]):
 
             # Save PDF to BytesIO buffer
             pdf_buffer = BytesIO()
-            pdf.output(pdf_buffer)
+            pdf.output(pdf_buffer)  # Output PDF content to the buffer
             pdf_buffer.seek(0)
 
             # Write PDF to the zip file
