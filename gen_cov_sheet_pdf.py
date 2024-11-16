@@ -6,9 +6,10 @@ from io import BytesIO
 import zipfile
 from openpyxl import Workbook
 from openpyxl.styles import Alignment, Font, PatternFill, Border, Side
+from fpdf import FPDF
 
-# Function to generate coversheets and save them to a zip file
-def generate_coversheets_zip(student_list=[]):
+# Function to generate coversheets and save them to a zip file as PDFs
+def generate_coversheets_pdf_zip(student_list=[]):
     db_connection = pg8000.connect(
         database=os.environ["SUPABASE_DB_NAME"],
         user=os.environ["SUPABASE_USER"],
@@ -114,21 +115,32 @@ def generate_coversheets_zip(student_list=[]):
                 adjusted_width = max_length + 2
                 sheet.column_dimensions[col_letter].width = adjusted_width
 
-            # Save the workbook to a buffer
-            excel_buffer = BytesIO()
-            workbook.save(excel_buffer)
+            # Get the range to export as PDF (A1:F(last row + 1))
+            last_row = len(filtered_df) + 7
+            pdf_data = BytesIO()
+            pdf = FPDF()
+            pdf.add_page()
+            pdf.set_font("Arial", size=10)
+            pdf.cell(200, 10, txt=f"Coversheet for {filtered_df['Name'].iloc[0]}", ln=True, align='C')
 
-            # Save Excel file in the zip
-            excel_filename = f"{student_id}.xlsx"
-            excel_buffer.seek(0)
-            zip_file.writestr(excel_filename, excel_buffer.read())
+            # Write data to PDF
+            for row_num in range(1, last_row + 1):
+                row_values = [sheet.cell(row=row_num, column=col_num).value for col_num in range(1, 7)]
+                pdf.cell(200, 10, txt=" | ".join(str(val) if val else "" for val in row_values), ln=True)
+
+            pdf.output(pdf_data)
+            pdf_data.seek(0)
+
+            # Save the PDF file in the zip
+            pdf_filename = f"{student_id}.pdf"
+            zip_file.writestr(pdf_filename, pdf_data.read())
 
     zip_buffer.seek(0)
     return zip_buffer
 
 # Streamlit interface
 st.title("Generate Theory Exam Coversheets")
-st.write("Enter a list of student IDs and download the Excel coversheets containing the highest result for each subject the student has taken.")
+st.write("Enter a list of student IDs and download the coversheets as PDFs.")
 
 student_ids_input = st.text_area("Enter Student IDs separated by commas (e.g., 151596, 156756, 154960):")
 st.write("Need help generating a list of IDs? Download the Excel template:")
@@ -143,7 +155,7 @@ if st.button("Generate Coversheets"):
         st.write("Generating coversheets...")
 
         # Generate the zip file in memory
-        zip_file = generate_coversheets_zip(student_list)
+        zip_file = generate_coversheets_pdf_zip(student_list)
 
         # Offer the zip file for download
         st.download_button(
@@ -152,7 +164,7 @@ if st.button("Generate Coversheets"):
             file_name="coversheets.zip",
             mime="application/zip"
         )
-        st.success("Coversheets zip generated successfully!")
+        st.success("Coversheets PDF zip generated successfully!")
 
     except Exception as e:
         st.error(f"An error occurred: {e}")
