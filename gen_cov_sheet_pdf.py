@@ -111,8 +111,9 @@ def create_protected_excel_sheet(student_data, student_id):
         sheet.column_dimensions[get_column_letter(col)].width = adjusted_width
 
     # Protect the sheet
-    sheet.protection.set_password("securepassword")  # Set a password for protection
-    sheet.protection.enable()
+    sheet.protection.set_password(os.environ["EXCEL_PASSWORD"])  # Set a password for protection
+    sheet.protection.enable()  # Enable sheet protection
+
 
     # Save the workbook to a temporary file
     excel_buffer = BytesIO()
