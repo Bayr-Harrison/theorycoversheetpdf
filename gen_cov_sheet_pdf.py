@@ -5,7 +5,7 @@ import pg8000
 from io import BytesIO
 import zipfile
 from openpyxl import Workbook
-from openpyxl.styles import Alignment, Font, Border, Side
+from openpyxl.styles import Alignment, Font, Border, Side, PatternFill
 from openpyxl.utils import get_column_letter
 
 # Function to establish a database connection
@@ -49,7 +49,7 @@ def fetch_student_data(student_list):
     df = pd.DataFrame(output_data, columns=col_names)
     return df
 
-# Function to generate an Excel sheet with protection and save it to a temporary file
+# Function to generate a protected and formatted Excel sheet
 def create_protected_excel_sheet(student_data, student_id):
     workbook = Workbook()
     sheet = workbook.active
@@ -59,6 +59,7 @@ def create_protected_excel_sheet(student_data, student_id):
     header_font = Font(bold=True)
     cell_alignment = Alignment(horizontal="center", vertical="center")
     thin_border = Border(left=Side(style="thin"), right=Side(style="thin"), top=Side(style="thin"), bottom=Side(style="thin"))
+    header_fill = PatternFill(start_color="AEE1F8", end_color="AEE1F8", fill_type="solid")
 
     # Populate static text in specific cells
     sheet["B2"] = "Student Name:"
@@ -66,13 +67,22 @@ def create_protected_excel_sheet(student_data, student_id):
     sheet["B4"] = "Student National ID:"
     sheet["B5"] = "Student Class:"
 
-    sheet["B2"].font = sheet["B3"].font = sheet["B4"].font = sheet["B5"].font = header_font
-    sheet["B2"].alignment = sheet["B3"].alignment = sheet["B4"].alignment = sheet["B5"].alignment = cell_alignment
+    # Apply formatting to static cells
+    for cell in ["B2", "B3", "B4", "B5"]:
+        sheet[cell].font = header_font
+        sheet[cell].alignment = cell_alignment
+        sheet[cell].fill = header_fill
+        sheet[cell].border = thin_border
 
+    # Populate student-specific values
     sheet["C2"] = student_data['Name'].iloc[0]
     sheet["C3"] = student_data['IATC ID'].iloc[0]
     sheet["C4"] = student_data['National ID'].iloc[0]
     sheet["C5"] = student_data['Class'].iloc[0]
+
+    for cell in ["C2", "C3", "C4", "C5"]:
+        sheet[cell].alignment = cell_alignment
+        sheet[cell].border = thin_border
 
     # Populate table headers
     headers = ['Subject', 'Score', 'Result', 'Date']
@@ -81,6 +91,7 @@ def create_protected_excel_sheet(student_data, student_id):
         cell.font = header_font
         cell.alignment = cell_alignment
         cell.border = thin_border
+        cell.fill = header_fill
 
     # Populate the data table
     for row_num, row_data in enumerate(student_data[['Subject', 'Score', 'Result', 'Date']].values, start=8):
@@ -113,7 +124,7 @@ def generate_coversheets_zip(student_list):
         for student_id in student_list:
             filtered_df = df[df['IATC ID'] == student_id]
 
-            # Generate protected Excel file
+            # Generate protected and formatted Excel file
             excel_buffer = create_protected_excel_sheet(filtered_df, student_id)
 
             # Add Excel file to the zip
@@ -123,7 +134,7 @@ def generate_coversheets_zip(student_list):
     return zip_buffer
 
 # Streamlit interface
-st.title("Generate Theory Exam Coversheets (Protected)")
+st.title("Generate Theory Exam Coversheets (Protected & Formatted)")
 st.write("Enter a list of student IDs and download the Excel coversheets containing the highest result for each subject the student has taken.")
 
 student_ids_input = st.text_area("Enter Student IDs separated by commas (e.g., 151596, 156756, 154960):")
