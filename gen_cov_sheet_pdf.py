@@ -4,7 +4,9 @@ import pandas as pd
 import pg8000
 from io import BytesIO
 import zipfile
-from fpdf import FPDF
+from openpyxl import Workbook
+from openpyxl.styles import Alignment, Font, Border, Side
+import pdfkit
 
 # Function to generate coversheets and save them as PDFs in a zip file
 def generate_coversheets_zip(student_list=[]):
@@ -51,44 +53,69 @@ def generate_coversheets_zip(student_list=[]):
         for student_id in student_list:
             filtered_df = df[df['IATC ID'] == student_id]
 
-            # Create a new PDF for each student
-            pdf = FPDF()
-            pdf.add_page()
-            pdf.set_font("Arial", size=12)
+            # Create a workbook and format it
+            workbook = Workbook()
+            sheet = workbook.active
+            sheet.title = str(student_id)
 
-            # Add student details
-            pdf.cell(200, 10, txt="Student Coversheet", ln=True, align="C")
-            pdf.ln(10)
-            pdf.cell(50, 10, txt="Student Name:", border=1)
-            pdf.cell(100, 10, txt=str(filtered_df['Name'].iloc[0]), border=1, ln=True)
-            pdf.cell(50, 10, txt="IATC ID:", border=1)
-            pdf.cell(100, 10, txt=str(filtered_df['IATC ID'].iloc[0]), border=1, ln=True)
-            pdf.cell(50, 10, txt="National ID:", border=1)
-            pdf.cell(100, 10, txt=str(filtered_df['National ID'].iloc[0]), border=1, ln=True)
-            pdf.cell(50, 10, txt="Class:", border=1)
-            pdf.cell(100, 10, txt=str(filtered_df['Class'].iloc[0]), border=1, ln=True)
+            # Populate static text in specific cells
+            sheet["B2"] = "Student Name:"
+            sheet["B3"] = "Student IATC ID:"
+            sheet["B4"] = "Student National ID:"
+            sheet["B5"] = "Student Class:"
 
-            # Add table headers
-            pdf.ln(10)
-            for header in ['Subject', 'Score', 'Result', 'Date']:
-                pdf.cell(48, 10, txt=header, border=1, align="C")
-            pdf.ln()
+            # Populate specific values in the corresponding cells
+            sheet["C2"] = filtered_df['Name'].iloc[0]
+            sheet["C3"] = filtered_df['IATC ID'].iloc[0]
+            sheet["C4"] = filtered_df['National ID'].iloc[0]
+            sheet["C5"] = filtered_df['Class'].iloc[0]
 
-            # Add table rows
-            for _, row in filtered_df.iterrows():
-                pdf.cell(48, 10, txt=str(row['Subject']), border=1)
-                pdf.cell(48, 10, txt=str(row['Score']), border=1)
-                pdf.cell(48, 10, txt=str(row['Result']), border=1)
-                pdf.cell(48, 10, txt=str(row['Date']), border=1)
-                pdf.ln()
+            # Populate the data table starting from B7
+            for col_num, header in enumerate(['Subject', 'Score', 'Result', 'Date'], start=2):
+                sheet.cell(row=7, column=col_num, value=header).font = Font(bold=True)
+                sheet.cell(row=7, column=col_num).alignment = Alignment(horizontal="center")
 
-            # Save PDF to BytesIO buffer
+            for row_num, row_data in enumerate(filtered_df[['Subject', 'Score', 'Result', 'Date']].values, start=8):
+                for col_num, value in enumerate(row_data, start=2):
+                    sheet.cell(row=row_num, column=col_num, value=value)
+
+            # Add borders and center alignment
+            thin_border = Border(
+                left=Side(style="thin"), 
+                right=Side(style="thin"), 
+                top=Side(style="thin"), 
+                bottom=Side(style="thin")
+            )
+            for row in sheet.iter_rows(min_row=2, max_row=sheet.max_row, min_col=2, max_col=6):
+                for cell in row:
+                    cell.border = thin_border
+                    cell.alignment = Alignment(horizontal="center", vertical="center")
+
+            # Adjust column widths
+            for column in ["B", "C", "D", "E", "F"]:
+                sheet.column_dimensions[column].width = 20
+
+            # Save the workbook temporarily
+            excel_buffer = BytesIO()
+            workbook.save(excel_buffer)
+            excel_buffer.seek(0)
+
+            # Convert the Excel sheet to a PDF
             pdf_buffer = BytesIO()
-            pdf.output(pdf_buffer)  # Output PDF content to the buffer
-            pdf_buffer.seek(0)
+            temp_excel_path = f"temp_{student_id}.xlsx"
+            with open(temp_excel_path, "wb") as temp_excel_file:
+                temp_excel_file.write(excel_buffer.read())
 
-            # Write PDF to the zip file
-            zip_file.writestr(f"{student_id}.pdf", pdf_buffer.read())
+            temp_pdf_path = f"temp_{student_id}.pdf"
+            pdfkit.from_file(temp_excel_path, temp_pdf_path)
+
+            # Read the generated PDF and add it to the zip file
+            with open(temp_pdf_path, "rb") as temp_pdf_file:
+                zip_file.writestr(f"{student_id}.pdf", temp_pdf_file.read())
+
+            # Clean up temporary files
+            os.remove(temp_excel_path)
+            os.remove(temp_pdf_path)
 
     zip_buffer.seek(0)
     return zip_buffer

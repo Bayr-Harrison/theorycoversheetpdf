@@ -1,5 +1,6 @@
 streamlit
-pandas
 pg8000
+pandas
 openpyxl
 fpdf
+pdfkit
