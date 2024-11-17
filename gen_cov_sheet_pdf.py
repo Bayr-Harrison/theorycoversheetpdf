@@ -100,9 +100,15 @@ def create_protected_excel_sheet(student_data, student_id):
             cell.alignment = cell_alignment
             cell.border = thin_border
 
-    # Adjust column widths
+    # Adjust column widths to fit content
     for col in range(2, 6):  # Columns B to E
-        sheet.column_dimensions[get_column_letter(col)].width = 20
+        max_length = 0
+        for row in range(1, sheet.max_row + 1):
+            cell_value = sheet.cell(row=row, column=col).value
+            if cell_value:
+                max_length = max(max_length, len(str(cell_value)))
+        adjusted_width = max_length + 2  # Add padding
+        sheet.column_dimensions[get_column_letter(col)].width = adjusted_width
 
     # Protect the sheet
     sheet.protection.set_password("securepassword")  # Set a password for protection
