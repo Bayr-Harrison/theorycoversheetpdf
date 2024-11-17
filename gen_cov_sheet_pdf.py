@@ -78,11 +78,14 @@ def create_protected_excel_sheet(student_data, student_id):
     sheet["C2"] = student_data['Name'].iloc[0]
     sheet["C3"] = student_data['IATC ID'].iloc[0]
     sheet["C4"] = student_data['National ID'].iloc[0]
-    sheet["C5"] = student_data['Class'].iloc[0]
+    sheet["C5"] = float(student_data['Class'].iloc[0])  # Convert to float for decimal formatting
 
     for cell in ["C2", "C3", "C4", "C5"]:
         sheet[cell].alignment = cell_alignment
         sheet[cell].border = thin_border
+
+    # Format C5 to display as a number with 2 decimal places
+    sheet["C5"].number_format = "0.00"
 
     # Populate table headers
     headers = ['Subject', 'Score', 'Result', 'Date']
@@ -113,7 +116,6 @@ def create_protected_excel_sheet(student_data, student_id):
     # Protect the sheet
     sheet.protection.set_password(os.environ["EXCEL_PASSWORD"])  # Set a password for protection
     sheet.protection.enable()  # Enable sheet protection
-
 
     # Save the workbook to a temporary file
     excel_buffer = BytesIO()
