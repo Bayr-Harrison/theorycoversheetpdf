@@ -1,4 +1,5 @@
 streamlit
-pg8000
 pandas
 fpdf
+pg8000
+openpyxl

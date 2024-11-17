@@ -4,6 +4,10 @@ import pandas as pd
 import pg8000
 from io import BytesIO
 import zipfile
+from openpyxl import Workbook
+from openpyxl.styles import Alignment, Font, Border, Side
+from openpyxl.utils import get_column_letter
+from openpyxl.drawing.image import Image
 from fpdf import FPDF
 
 # Function to establish a database connection
@@ -47,41 +51,87 @@ def fetch_student_data(student_list):
     df = pd.DataFrame(output_data, columns=col_names)
     return df
 
-# Function to generate a PDF for a student
-def generate_pdf(student_data, student_id):
-    pdf = FPDF()
-    pdf.add_page()
+# Function to generate an Excel sheet and return it as a buffer
+def create_excel_sheet(student_data):
+    workbook = Workbook()
+    sheet = workbook.active
+    sheet.title = "Coversheet"
 
-    # Set default font and add title
-    pdf.set_font('Arial', 'B', 12)
-    pdf.cell(0, 10, f"Coversheet for {student_data['Name'].iloc[0]}", align='C', ln=True)
+    # Styling variables
+    header_font = Font(bold=True)
+    cell_alignment = Alignment(horizontal="center", vertical="center")
+    thin_border = Border(left=Side(style="thin"), right=Side(style="thin"), top=Side(style="thin"), bottom=Side(style="thin"))
 
-    # Add student details
-    pdf.set_font('Arial', '', 10)
-    pdf.cell(0, 10, f"Student Name: {student_data['Name'].iloc[0]}", ln=True)
-    pdf.cell(0, 10, f"IATC ID: {student_data['IATC ID'].iloc[0]}", ln=True)
-    pdf.cell(0, 10, f"National ID: {student_data['National ID'].iloc[0]}", ln=True)
-    pdf.cell(0, 10, f"Class: {student_data['Class'].iloc[0]}", ln=True)
+    # Populate static text in specific cells
+    sheet["B2"] = "Student Name:"
+    sheet["B3"] = "Student IATC ID:"
+    sheet["B4"] = "Student National ID:"
+    sheet["B5"] = "Student Class:"
 
-    pdf.ln(10)  # Line break
+    sheet["B2"].font = sheet["B3"].font = sheet["B4"].font = sheet["B5"].font = header_font
+    sheet["B2"].alignment = sheet["B3"].alignment = sheet["B4"].alignment = sheet["B5"].alignment = cell_alignment
 
-    # Add table header
-    pdf.set_font('Arial', 'B', 10)
+    sheet["C2"] = student_data['Name'].iloc[0]
+    sheet["C3"] = student_data['IATC ID'].iloc[0]
+    sheet["C4"] = student_data['National ID'].iloc[0]
+    sheet["C5"] = student_data['Class'].iloc[0]
+
+    # Populate table headers
     headers = ['Subject', 'Score', 'Result', 'Date']
-    for header in headers:
-        pdf.cell(40, 10, header, border=1, align='C')
+    for col_num, header in enumerate(headers, start=2):
+        cell = sheet.cell(row=7, column=col_num, value=header)
+        cell.font = header_font
+        cell.alignment = cell_alignment
+        cell.border = thin_border
+
+    # Populate the data table
+    for row_num, row_data in enumerate(student_data[['Subject', 'Score', 'Result', 'Date']].values, start=8):
+        for col_num, value in enumerate(row_data, start=2):
+            cell = sheet.cell(row=row_num, column=col_num, value=value)
+            cell.alignment = cell_alignment
+            cell.border = thin_border
+
+    # Adjust column widths
+    for col in range(2, 6):  # Columns B to E
+        sheet.column_dimensions[get_column_letter(col)].width = 20
+
+    # Save the workbook to a buffer
+    excel_buffer = BytesIO()
+    workbook.save(excel_buffer)
+    excel_buffer.seek(0)
+
+    return excel_buffer
+
+# Function to convert Excel to PDF using FPDF
+def excel_to_pdf(excel_buffer, student_id):
+    # Load Excel data
+    workbook = pd.ExcelFile(excel_buffer)
+    sheet_data = workbook.parse(workbook.sheet_names[0])
+
+    # Create a PDF
+    pdf = FPDF()
+    pdf.set_auto_page_break(auto=True, margin=15)
+    pdf.add_page()
+    pdf.set_font("Arial", size=12)
+
+    # Title
+    pdf.set_font("Arial", style="B", size=14)
+    pdf.cell(0, 10, f"Coversheet for Student ID: {student_id}", ln=True, align="C")
+
+    # Table header
+    pdf.set_font("Arial", style="B", size=10)
+    for header in sheet_data.columns:
+        pdf.cell(40, 10, str(header), border=1, align="C")
     pdf.ln()
 
-    # Add table rows
-    pdf.set_font('Arial', '', 10)
-    for _, row in student_data[['Subject', 'Score', 'Result', 'Date']].iterrows():
-        pdf.cell(40, 10, str(row['Subject']), border=1)
-        pdf.cell(40, 10, str(row['Score']), border=1)
-        pdf.cell(40, 10, str(row['Result']), border=1)
-        pdf.cell(40, 10, str(row['Date']), border=1)
+    # Table rows
+    pdf.set_font("Arial", size=10)
+    for _, row in sheet_data.iterrows():
+        for value in row:
+            pdf.cell(40, 10, str(value), border=1, align="C")
         pdf.ln()
 
-    # Save to buffer
+    # Save PDF to buffer
     pdf_buffer = BytesIO()
     pdf.output(pdf_buffer)
     pdf_buffer.seek(0)
@@ -98,12 +148,13 @@ def generate_coversheets_zip(student_list):
         for student_id in student_list:
             filtered_df = df[df['IATC ID'] == student_id]
 
-            # Generate PDF for the student
-            pdf_buffer = generate_pdf(filtered_df, student_id)
+            # Generate Excel and then convert to PDF
+            excel_buffer = create_excel_sheet(filtered_df)
+            pdf_buffer = excel_to_pdf(excel_buffer, student_id)
 
             # Add PDF to the zip
             pdf_filename = f"{student_id}.pdf"
-            zip_file.writestr(pdf_filename, pdf_buffer.getvalue())  # Use .getvalue() to read from BytesIO
+            zip_file.writestr(pdf_filename, pdf_buffer.getvalue())
 
     zip_buffer.seek(0)
     return zip_buffer
