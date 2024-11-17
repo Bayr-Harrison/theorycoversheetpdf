@@ -103,7 +103,7 @@ def generate_coversheets_zip(student_list):
 
             # Add PDF to the zip
             pdf_filename = f"{student_id}.pdf"
-            zip_file.writestr(pdf_filename, pdf_buffer.read())
+            zip_file.writestr(pdf_filename, pdf_buffer.getvalue())  # Use .getvalue() to read from BytesIO
 
     zip_buffer.seek(0)
     return zip_buffer
