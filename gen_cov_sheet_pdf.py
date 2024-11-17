@@ -57,10 +57,11 @@ def generate_coversheets_zip(student_list=[]):
             pdf.set_font("Arial", size=12)
 
             # Add student details
-            pdf.set_fill_color(174, 225, 248)
-            pdf.set_text_color(0, 0, 0)
-            pdf.set_font(style="B")
+            pdf.set_fill_color(174, 225, 248)  # Light blue fill color
+            pdf.set_text_color(0, 0, 0)       # Black text color
+            pdf.set_font(style="B")           # Bold font
 
+            # Header fields
             pdf.cell(50, 10, "Student Name:", fill=True, border=1)
             pdf.cell(100, 10, filtered_df['Name'].iloc[0], border=1, ln=1)
 
@@ -73,12 +74,12 @@ def generate_coversheets_zip(student_list=[]):
             pdf.cell(50, 10, "Student Class:", fill=True, border=1)
             pdf.cell(100, 10, filtered_df['Class'].iloc[0], border=1, ln=1)
 
-            pdf.ln(10)  # Add some spacing before the table
+            pdf.ln(10)  # Add spacing
 
             # Add table headers
             headers = ['Subject', 'Score', 'Result', 'Date']
             pdf.set_font(style="B")
-            pdf.set_fill_color(174, 225, 248)
+            pdf.set_fill_color(174, 225, 248)  # Light blue for headers
             for header in headers:
                 pdf.cell(45, 10, header, border=1, fill=True, align="C")
             pdf.ln()
@@ -90,12 +91,12 @@ def generate_coversheets_zip(student_list=[]):
                     pdf.cell(45, 10, str(item), border=1, align="C")
                 pdf.ln()
 
-            # Save the PDF in-memory
+            # Save the PDF to a buffer
             pdf_buffer = BytesIO()
             pdf.output(pdf_buffer)
             pdf_buffer.seek(0)
 
-            # Add the PDF to the zip file
+            # Add the PDF to the ZIP file
             pdf_filename = f"{student_id}.pdf"
             zip_file.writestr(pdf_filename, pdf_buffer.read())
 
