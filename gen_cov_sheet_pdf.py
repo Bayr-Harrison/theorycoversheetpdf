@@ -143,7 +143,7 @@ def generate_coversheets_zip(student_list):
     return zip_buffer
 
 # Streamlit interface
-st.title("Generate Theory Exam Coversheets (Protected & Formatted)")
+st.title("Generate Theory Exam Coversheets")
 st.write("Enter a list of student IDs and download the Excel coversheets containing the highest result for each subject the student has taken.")
 
 student_ids_input = st.text_area("Enter Student IDs separated by commas (e.g., 151596, 156756, 154960):")
